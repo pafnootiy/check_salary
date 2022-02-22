@@ -1,234 +1,201 @@
 import requests
 from pprint import pprint
 from itertools import count
+from itertools import chain
 from terminaltables import AsciiTable
 import os
 from dotenv import load_dotenv
+import collections
 
 
-def get_all_response_hh(programming_languages, url):
-    all_pages_with_vacancies = []
-    for lang in programming_languages:
+def get_salary_info_from_hh(language):
+    url = "https://api.hh.ru/vacancies/"
+    all_pages_with_salary = []
+
+    for page in count(0):
+        payload = {
+            "text": f"{language}",
+            "area": "1",
+            "currency": "RUR",
+            "only_with_salary": True,
+            'page': page
+        }
+        response = requests.get(url, params=payload)
+        response.raise_for_status()
+        pages_data = response.json()["items"]
+        for salary in pages_data:
+            all_pages_with_salary.append(salary["salary"])
+        # if page > pages_data['pages']:
+        if page > 10:  # долго собирает при полной паганации
+            break
+
+    return all_pages_with_salary
+
+
+def get_all_salary_from_hh(salary_info):
+    all_salary_from_hh = []
+    for salary in salary_info:
         try:
-            for page in count(0):
-                payload = {
-                    "text": f"{lang}",
-                    "area": "1",
-                    "currency": "RUR",  # Почему не работает этот параметр ?
-                    "only_with_salary": True,
-                    'page': page
-                }
-                response = requests.get(url, params=payload)
-                response.raise_for_status()
-                pages_data = response.json()
-                all_pages_with_vacancies.append(pages_data)
-                # if page > pages_data['pages']:
-                if page > 3:  # долго собирает при полной паганации
-                    break
-        except requests.exceptions.HTTPError:
+            payment = salary["from"] * 1.2
+            all_salary_from_hh.append(payment)
+        except TypeError:
             continue
-    return all_pages_with_vacancies
+    return all_salary_from_hh
 
 
-def get_all_average_salary_hh(vacancy_response_all_hh, programming_languages):
-    avarage_salary_hh = []
-    vacancies_processed_hh = []
-    for language in programming_languages:
-        all_salary = []
-        for vacancy in vacancy_response_all_hh:
-            for average_salary in vacancy["items"]:
-                if f"{language}" in average_salary["name"]:
-                    try:
-                        if average_salary["salary"]["currency"] == "RUR":
-                            salary_from = average_salary["salary"]["from"] * 1.2
-                            all_salary.append(salary_from)
-                        else:
-                            salary_to = average_salary["salary"]["to"] * 0.8
-                            all_salary.append(salary_to)
-                    except TypeError:
-                        salary_none = "none"
-
-        avarage_salary_hh.append(int(sum(all_salary) / len(all_salary)))
-        vacancies_processed_hh.append(len(all_salary))
-    return avarage_salary_hh, vacancies_processed_hh
+def get_all_salary_to_hh(salary_info):
+    all_salary_to_hh = []
+    for salary in salary_info:
+        try:
+            payment = salary["to"] * 0.8
+            all_salary_to_hh.append(payment)
+        except TypeError:
+            continue
+    return all_salary_to_hh
 
 
-def get_all_found_numbers_hh(vacancy_response_all_hh):
-    vacancies_found_hh = []
-    for i in vacancy_response_all_hh:
-        vacancies_found_hh.append(i["found"])
-    return vacancies_found_hh
+def get_average_salary(salary_from, salary_to):
+    all_salary = list(chain(salary_from, salary_to))
+    average_salary = int(sum(all_salary) / len(all_salary))
+    return average_salary
 
 
-def get_all_statistic_hh(programming_languages, proccesed_and_average_hh, vacancies_numbers_hh):
-    vacancies_statistics_hh = {}
-    for lang, processed, found, average in zip(programming_languages, proccesed_and_average_hh[1], vacancies_numbers_hh,
-                                               proccesed_and_average_hh[0]):
-        vacancies_statistics_hh[lang] = {"vacancies_found": found, "vacancies_processed": processed,
-                                         "avarage_salary": average}
-    return vacancies_statistics_hh
+def get_vacancies_processed(salary_from, salary_to):
+    return len(list(chain(salary_from, salary_to)))
 
 
-def get_sj_autorisation(url_for_autorisation, secret_key, headers):
-    sj_response = requests.post(url_for_autorisation, headers=headers)
-    sj_response.raise_for_status()
+def get_vacancies_numbers_hh(language):
+    url = "https://api.hh.ru/vacancies/"
+    payload = {
+        "text": f"{language}",
+        "area": "1",
+        "currency": "RUR",
+        "only_with_salary": True,
+    }
+    response = requests.get(url, params=payload)
+    response.raise_for_status()
+    vacancies_found = response.json()["found"]
+    return vacancies_found
 
 
-def get_response_from_sj(programming_languages, sj_autorisation, headers, url_vacancy_sj):
-    all_response_js = []
-    for language in programming_languages:
-        for page in count(0):
-            payload = {'keyword': f"{language}",
-                       "town": 4,
-                       'page': page
-                       }
-            sj_vacancy_response = requests.get(url_vacancy_sj, headers=headers, params=payload)
-            sj_vacancy_response.raise_for_status()
-            sj_vacancy_response = sj_vacancy_response.json()
-            all_response_js.append(sj_vacancy_response)
-            if page >= 5:
-            # if page >= 500:# долго собирает при полной паганации
-                break
+def print_data_tabs(table, columns, title_site):
+    data_tabs_hh = [columns]
 
-    return (all_response_js)
-
-
-def get_all_average_salary_sj(vacancy_response_all_sj, programming_languages):
-    vacancies_processed_js = []
-    avarage_salary_js = []
-    salary_js = []
-    for languages in programming_languages:
-        for i in vacancy_response_all_sj:
-            for avarage_salary in i["objects"]:
-                if f"{languages}" in avarage_salary["profession"]:
-                    if avarage_salary['payment_from'] != 0 or avarage_salary["payment_to"] != 0 and avarage_salary[
-                        "currency"] == "rub":
-                        try:
-                            if avarage_salary["currency"] == "RUR":
-                                salary_from_js = avarage_salary['payment_from'] * 1.2
-                                salary_js.append(salary_from_js)
-                            else:
-                                salary_to_js = avarage_salary["payment_to"] * 0.8
-                                salary_js.append(salary_to_js)
-                        except TypeError:
-                            salary_none = "none"
-                    else:
-                        continue
-
-        avarage_salary_js.append(int(sum(salary_js) / len(salary_js)))
-        vacancies_processed_js.append(len(salary_js))
-
-    return avarage_salary_js, vacancies_processed_js
-
-
-def get_all_found_numbers_sj(vacancy_response_all_sj, programming_languages, headers, url_for_vacancy):
-    number_vacancy_sj = []
-    for language in programming_languages:
-        payload = {'keyword': f"{language}",
-                   "town": 4
-                   }
-        vacancy_response_all_sj = requests.get(url_for_vacancy, headers=headers, params=payload)
-        vacancy_response_all_sj.raise_for_status()
-        vacancy_response_all_sj = vacancy_response_all_sj.json()
-        number_vacancy_sj.append(vacancy_response_all_sj["total"])
-
-    return number_vacancy_sj
-
-
-def get_all_statistic_sj(programming_languages, proccesed_and_average_sj, vacancy_numbers_sj):
-    vacancies_statistics_sj = {}
-    for lang_sj, processed_sj, found_sj, average_sj in zip(programming_languages, proccesed_and_average_sj[1],
-                                                           vacancy_numbers_sj,
-                                                           proccesed_and_average_sj[0]):
-        vacancies_statistics_sj[lang_sj] = {"vacancies_found": found_sj, "vacancies_processed": processed_sj,
-                                            "avarage_salary": average_sj}
-    return vacancies_statistics_sj
-
-
-def get_vacancies_tab_hh(all_vacancy_statistic_hh):
-    unzipped_all_vacancy_statistic_hh = zip(*all_vacancy_statistic_hh.items())
-    all_vacancy_statistic_hh = list(
-        zip(*unzipped_all_vacancy_statistic_hh))
-    statisitic_tabs_hh = []
-    for tab in all_vacancy_statistic_hh:
-        statisitic_tabs_hh.append(tab[0])
-        for string in tab[1].values():
-            statisitic_tabs_hh.append(string)
-
-    final_strings_hh = list(zip(*[iter(statisitic_tabs_hh)] * 4))
-
-    columns = ["Язык программирования ", "Вакансий найдено", "Вакансий отработано", "Средняя ЗП"]
-
-    data_tabs_hh = []
-    data_tabs_hh.append(columns)
-    for tab in final_strings_hh:
-        data_tabs_hh.append(tab)
-
-    title = 'HH Vacancies'
+    for string in table:
+        data_tabs_hh.append(string)
+    title = title_site
     table_instance = AsciiTable(data_tabs_hh, title)
     table_instance.justify_columns[1] = 'center'
     print(table_instance.table)
 
 
-def get_vacancies_tab_sj(all_vacancy_statistic_sj):
-    unzipped_all_vacancy_statistic_sj = zip(*all_vacancy_statistic_sj.items())
-    all_vacancy_statistic_sj = list(zip(*unzipped_all_vacancy_statistic_sj))
-    statisitic_tabs_sj = []
-    for tab in all_vacancy_statistic_sj:
-        statisitic_tabs_sj.append(tab[0])
-        for string in tab[1].values():
-            statisitic_tabs_sj.append(string)
+def get_sj_autorisation(secret_key, headers):
+    url_for_autorisation = "https://www.superjob.ru/authorize/"
+    sj_response = requests.post(url_for_autorisation, headers=headers)
+    sj_response.raise_for_status()
 
-    final_strings_hh = list(zip(*[iter(statisitic_tabs_sj)] * 4))
 
-    columns = ["Язык программирования ", "Вакансий найдено", "Вакансий отработано", "Средняя ЗП"]
+def get_salary_info_from_sj(language, headers):
+    url_for_vacancy = "https://api.superjob.ru/2.0/vacancies/"
+    all_pages_with_salary = []
 
-    data_tabs_sj = []
-    data_tabs_sj.append(columns)
-    for tab in final_strings_hh:
-        data_tabs_sj.append(tab)
+    for page in count(0):
+        payload = {'keyword': f"{language}",
+                   "town": 4,
+                   'page': page,
+                   "no_agreement": 1
+                   }
+        sj_vacancy_response = requests.get(url_for_vacancy, headers=headers, params=payload)
+        sj_vacancy_response.raise_for_status()
+        sj_vacancy_response = sj_vacancy_response.json()
+        all_pages_with_salary.append(sj_vacancy_response)
+        # print(sj_vacancy_response)
+        # print(page)
+        if page >= 5:
+            # if page >= 500:# долго собирает при полной паганации
+            break
+    return all_pages_with_salary
 
-    title = 'SJ Vacancies'
-    table_instance = AsciiTable(data_tabs_sj, title)
-    table_instance.justify_columns[1] = 'center'
-    print(table_instance.table)
+
+def get_vacancies_found_sj(language, headers):
+    url_for_vacancy = "https://api.superjob.ru/2.0/vacancies/"
+    for page in count(0):
+        payload = {'keyword': f"{language}",
+                   "town": 4,
+                   'page': page,
+                   "no_agreement": 1
+                   }
+        sj_vacancy_response = requests.get(url_for_vacancy, headers=headers, params=payload)
+        sj_vacancy_response.raise_for_status()
+        sj_vacancy_response = sj_vacancy_response.json()["total"]
+        if page >= 15:
+            # if page >= 500:# долго собирает при полной паганации
+            break
+    return sj_vacancy_response
+
+
+def get_all_salary_from_sj(salary_info_sj):
+    all_salary_from_sj = []
+
+    for vacancies in salary_info_sj:
+        for salary in vacancies['objects']:
+            try:
+                if salary['payment_from']:
+                    payment = salary['payment_from'] * 1.2
+                    all_salary_from_sj.append(payment)
+            except TypeError:
+                continue
+    return all_salary_from_sj
+
+
+def get_all_salary_to_sj(salary_info_sj):
+    all_salary_to_sj = []
+    for vacancies in salary_info_sj:
+        for salary in vacancies['objects']:
+            try:
+                if salary['payment_to']:
+                    payment = salary['payment_to'] * 1.2
+                    all_salary_to_sj.append(payment)
+            except TypeError:
+                continue
+    return all_salary_to_sj
 
 
 def main():
-    url = "https://api.hh.ru/vacancies/"
-    url_for_autorisation = "https://www.superjob.ru/authorize/"
-    url_for_vacancy = "https://api.superjob.ru/2.0/vacancies/"
-    programming_languages = ["Python", "Java", "Javascript", "Ruby", "PHP", "C++", "CSS", "C#"]
-    vacancy_response_all_hh = get_all_response_hh(programming_languages, url)
-    proccesed_and_average_hh = get_all_average_salary_hh(vacancy_response_all_hh, programming_languages)
-    vacancies_numbers_hh = get_all_found_numbers_hh(vacancy_response_all_hh)
-    all_vacancy_statistic_hh = get_all_statistic_hh(programming_languages, proccesed_and_average_hh,
-                                                    vacancies_numbers_hh)
-    all_vacancy_statistic_hh = get_all_statistic_hh(programming_languages, proccesed_and_average_hh,
-                                                    vacancies_numbers_hh)
+    table_hh = []
+    table_sj = []
+    title_site_hh = "HH Vacancies"
+    title_site_sj = "SJ Vacancies"
+
     load_dotenv()
     secret_key = os.getenv("SJ_TOKEN")
     headers = {
-        "X-Api-App-Id": secret_key  # позже убрать в енв
+        "X-Api-App-Id": secret_key
     }
-    sj_autorisation = get_sj_autorisation(url_for_autorisation, secret_key, headers)
-    vacancy_response_all_sj = get_response_from_sj(programming_languages, sj_autorisation, headers, url_for_vacancy)
-    proccesed_and_average_sj = get_all_average_salary_sj(vacancy_response_all_sj, programming_languages)
-    vacancy_numbers_sj = get_all_found_numbers_sj(vacancy_response_all_sj, programming_languages, headers,
-                                                  url_for_vacancy)
-    all_vacancy_statistic_sj = get_all_statistic_sj(programming_languages, proccesed_and_average_sj, vacancy_numbers_sj)
-    get_vacancies_tab_hh(all_vacancy_statistic_hh)
-    get_vacancies_tab_sj(all_vacancy_statistic_hh)
+    columns = ["Язык программирования ", "Вакансий найдено", "Вакансий отработано", "Средняя ЗП"]
+    programming_languages = ["Python", "Java", "Javascript", "Ruby", "PHP", "C++", "CSS", "C#"]
+    for language in programming_languages:
+        salary_info = get_salary_info_from_hh(language)
+        salary_from_hh = (get_all_salary_from_hh(salary_info))
+        salary_to_hh = get_all_salary_to_hh(salary_info)
+        average_salary = get_average_salary(salary_from_hh, salary_to_hh)
+        vacancies_processed = get_vacancies_processed(salary_from_hh, salary_to_hh)
+        vacancies_found = get_vacancies_numbers_hh(language)
+        sample_form = [language, vacancies_found, vacancies_processed, average_salary]
+        table_hh.append(sample_form)
 
-    # load_dotenv()
-    # api_key = os.getenv("NASA_TOKEN")
-    # flight_number = 107
-    # path_for_images_photos = "photos_from_space/images"
-    # path_for_apod_photos = "photos_from_space/apod_pics"
-    # path_for_epic_photos = 'photos_from_space/epic_pics'
-    # fetch_spacex_last_launch(flight_number, path_for_images_photos)
-    # download_apod_photos(api_key, path_for_apod_photos)
-    # download_epic_photos(api_key, path_for_epic_photos)
+        get_sj_autorisation(secret_key, headers)
+        salary_info_sj = get_salary_info_from_sj(language, headers)
+        salary_from_sj = get_all_salary_from_sj(salary_info_sj)
+        salary_to_sj = get_all_salary_to_sj(salary_info_sj)
+        average_salary_sj = get_average_salary(salary_from_sj, salary_to_sj)
+        vacancies_processed_sj = get_vacancies_processed(salary_from_sj, salary_to_sj)
+        vacancies_found_sj = get_vacancies_found_sj(language, headers)
+        sample_form_sj = [language, vacancies_found_sj, vacancies_processed_sj, average_salary_sj]
+        table_sj.append(sample_form_sj)
+
+    print_data_tabs(table_hh, columns, title_site_hh)
+    print_data_tabs(table_sj, columns, title_site_sj)
 
 
 if __name__ == "__main__":
