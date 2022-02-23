@@ -43,9 +43,9 @@ def get_salary_info_from_hh(language):
 salary_and_found_hh = get_salary_info_from_hh(language)
 
 
-def get_average_salary_and_processed(salary_and_found_hh):
-    average_salary = int(sum(salary_and_found_hh[0]) / len(salary_and_found_hh[0]))
-    vacancies_processed = len(salary_and_found_hh[0])
+def get_average_salary_and_processed(salary_and_found):
+    average_salary = int(sum(salary_and_found[0]) / len(salary_and_found[0]))
+    vacancies_processed = len(salary_and_found[0])
     return average_salary, vacancies_processed
 
 
