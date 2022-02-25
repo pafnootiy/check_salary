@@ -12,9 +12,10 @@ language = "Python"
 
 def get_salary_info_from_hh(language):
     url = "https://api.hh.ru/vacancies/"
-    salary_from_to = []
 
+    salary_from_to = []
     for page in count(0):
+        # print(page)
         payload = {
             "text": f"{language}",
             "area": "1",
@@ -24,38 +25,54 @@ def get_salary_info_from_hh(language):
         }
         response = requests.get(url, params=payload)
         response.raise_for_status()
-        vacancie_pages = response.json()
-        for salary in vacancie_pages["items"]:
-            if salary["salary"]["from"]:
-                payment_from = salary["salary"]["from"] * 1.2
-                salary_from_to.append(payment_from)
-            else:
-                payment_to = salary["salary"]["to"] * 0.8
-                salary_from_to.append(payment_to)
+        response = response.json()
 
+        for salary in response["items"]:
+            # print(salary["salary"])
+            salary_from_to.append(salary["salary"])
+        # print(salary_from_to_1)
         # if page > pages_data['pages']:
-        if page > 5:  # долго собирает при полной паганации
+        if page >= 20:  # долго собирает при полной паганации
             break
-        vacancies_found = response.json()["found"]
+        vacancies_found = response["found"]
+
     return salary_from_to, vacancies_found
 
 
-salary_and_found_hh = get_salary_info_from_hh(language)
+salary_hh = get_salary_info_from_hh(language)
 
 
-def get_average_salary_and_processed(salary_and_found):
-    average_salary = int(sum(salary_and_found[0]) / len(salary_and_found[0]))
-    vacancies_processed = len(salary_and_found[0])
+def salary_from_to(salary_hh):
+    salary_from_to = []
+    for salary in salary_hh[0]:
+        if salary["from"]:
+            payment_from = salary["from"] * 1.2
+            salary_from_to.append(payment_from)
+        else:
+            payment_to = salary["to"] * 0.8
+            salary_from_to.append(payment_to)
+    return salary_from_to
+
+
+salary_from_to_hh = salary_from_to(salary_hh)
+
+
+def get_average_salary_and_processed(salary):
+    average_salary = int(sum(salary_from_to_hh) / len(salary_from_to_hh))
+    vacancies_processed = len(salary_from_to_hh)
     return average_salary, vacancies_processed
 
 
-average_salary_and_processed = get_average_salary_and_processed(salary_and_found_hh)
-
-
+average_salary_and_processed = get_average_salary_and_processed(salary_from_to_hh)
 
 table_hh = []
-sample_form = [language, salary_and_found_hh[1], average_salary_and_processed[1], average_salary_and_processed[0]]
-table_hh.append(sample_form)
+sample_form_dict = {
+    language: {"vacancies_found": salary_hh[1], "vacancies_processed": average_salary_and_processed[1],
+               "average_salary": average_salary_and_processed[0]}}
+
+for lang, stats in sample_form_dict.items():
+    table_hh.append([lang, stats["vacancies_found"], stats["vacancies_processed"], stats["average_salary"]])
+
 title_site_hh = "HH Vacancies"
 
 
@@ -71,13 +88,7 @@ def print_data_tabs(table, title_site):
     print(table_instance.table)
 
 
-print_data_tabs(table_hh, title_site_hh)  #MVP
-
-
-
-
-
-
+print_data_tabs(table_hh, title_site_hh)  # MVP
 
 # def get_sj_autorisation(secret_key, headers):
 #     url_for_autorisation = "https://www.superjob.ru/authorize/"
