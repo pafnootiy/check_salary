@@ -3,6 +3,6 @@
 *.env
 
 *test.py
-
-
+*in_proccess.py
+*salary.py
 *mvp_salary.py
