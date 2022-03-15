@@ -2,10 +2,10 @@ import requests
 from pprint import pprint
 from itertools import count
 from itertools import chain
-from terminaltables import AsciiTable
 import os
+
 from dotenv import load_dotenv
-import collections
+from terminaltables import AsciiTable
 
 
 def get_salary_info_from_hh(language):
@@ -14,7 +14,7 @@ def get_salary_info_from_hh(language):
     salary_from_to = []
     for page in count(0):
         payload = {
-            "text": f"{language}",
+            "text": language,
             "area": "1",
             "currency": "RUR",
             "only_with_salary": True,
@@ -22,17 +22,17 @@ def get_salary_info_from_hh(language):
         }
         response = requests.get(url, params=payload)
         response.raise_for_status()
-        response = response.json()
+        hh_json = response.json()
 
-        for salary in response["items"]:
+        for salary in hh_json["items"]:
             salary_from_to.append(salary["salary"])
         if page >= 20:
             break
-        vacancies_found = response["found"]
+        vacancies_found = hh_json["found"]
     return salary_from_to, vacancies_found
 
 
-def salary_from_to(salary_hh):
+def get_salaries_from_to(salary_hh):
     salary_from_to = []
     for salary in salary_hh[0]:
         if salary["from"]:
@@ -44,13 +44,15 @@ def salary_from_to(salary_hh):
     return salary_from_to
 
 
+
+
 def get_average_salary_and_processed(salary):
     average_salary = int(sum(salary) / len(salary))
     vacancies_processed = len(salary)
     return average_salary, vacancies_processed
 
 
-def sj_autorisation(secret_key, headers):
+def get_sj_autorisation(secret_key, headers):
     url_for_autorisation = "https://www.superjob.ru/authorize/"
     sj_response = requests.post(url_for_autorisation, headers=headers)
     sj_response.raise_for_status()
@@ -61,18 +63,18 @@ def get_salary_info_from_sj(language, headers):
     salary_from_to_sj = []
 
     for page in count(0):
-        payload = {'keyword': f"{language}",
+        payload = {'keyword': language,
                    "town": 4,
                    'page': page,
                    "no_agreement": 1
                    }
-        sj_vacancy_response = requests.get(url_for_vacancy, headers=headers, params=payload)
-        sj_vacancy_response.raise_for_status()
-        sj_vacancy_response = sj_vacancy_response.json()
-        if sj_vacancy_response['total']:
-            sj_total = sj_vacancy_response['total']
+        response = requests.get(url_for_vacancy, headers=headers, params=payload)
+        response.raise_for_status()
+        sj_json = response.json()
+        if sj_json['total']:
+            sj_total = sj_json['total']
 
-        for salary in sj_vacancy_response["objects"]:
+        for salary in sj_json["objects"]:
             salary_from_to_sj.append(salary)
 
         if page >= 65:
@@ -80,7 +82,7 @@ def get_salary_info_from_sj(language, headers):
     return salary_from_to_sj, sj_total
 
 
-def salary_from_to_sj(salary_sj):
+def get_salary_from_to_sj(salary_sj):
     salary_from_to = []
     for salary in salary_sj[0]:
         if salary["payment_from"]:
@@ -94,11 +96,11 @@ def salary_from_to_sj(salary_sj):
 
 def create_dictionary(language, salary, vacancies_processed, average_salary):
     table = []
-    sample_form_dict = {
+    sample_form = {
         language: {"vacancies_found": salary, "vacancies_processed": vacancies_processed,
                    "average_salary": average_salary}}
 
-    for lang, stats in sample_form_dict.items():
+    for lang, stats in sample_form.items():
         table.append([language, stats["vacancies_found"], stats["vacancies_processed"], stats["average_salary"]])
 
     return table
@@ -117,13 +119,13 @@ def print_data_tabs(table, title_site):
 
 
 def main():
-    pl = ["Python", "Java"]
+    programming_languages = ["Python", "Java"]
     table_hh = []
     table_sj = []
 
-    for language in pl:
+    for language in programming_languages:
         salary_hh = get_salary_info_from_hh(language)
-        salary_from_to_hh = salary_from_to(salary_hh)
+        salary_from_to_hh = get_salaries_from_to(salary_hh)
         average_salary_and_processed = get_average_salary_and_processed(salary_from_to_hh)
         table_col_hh = create_dictionary(language, salary_hh[1], average_salary_and_processed[1],
                                          average_salary_and_processed[0])
@@ -134,9 +136,9 @@ def main():
         headers = {
             "X-Api-App-Id": secret_key
         }
-        sj_autorisation(secret_key, headers)
+        get_sj_autorisation(secret_key, headers)
         salary_sj = get_salary_info_from_sj(language, headers)
-        sj_salary_from_to = salary_from_to_sj(salary_sj)
+        sj_salary_from_to = get_salary_from_to_sj(salary_sj)
         average_salary_and_processed_sj = get_average_salary_and_processed(sj_salary_from_to)
         table_col_sj = create_dictionary(language, salary_sj[1], average_salary_and_processed_sj[1],
                                          average_salary_and_processed_sj[0])
