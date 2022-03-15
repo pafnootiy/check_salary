@@ -1,4 +1,3 @@
-import requests
 from pprint import pprint
 from itertools import count
 from itertools import chain
@@ -6,7 +5,7 @@ import os
 
 from dotenv import load_dotenv
 from terminaltables import AsciiTable
-
+import requests
 
 def get_salary_info_from_hh(language):
     url = "https://api.hh.ru/vacancies/"
