@@ -8,9 +8,6 @@ from terminaltables import AsciiTable
 import requests
 
 
-# language = "python"
-
-
 def get_salary_info_from_hh(language):
     url = "https://api.hh.ru/vacancies/"
 
@@ -41,22 +38,10 @@ def get_salary_info_from_hh(language):
     return salary_from_to, vacancies_found
 
 
-# vacancies_info_hh = get_salary_info_from_hh(language)
-
-
 def get_average_salary_and_processed(salary):
     average_salary = int(sum(salary) / len(salary))
     vacancies_processed = len(salary)
     return average_salary, vacancies_processed
-
-
-# average_salary_hh = get_average_salary_and_processed(vacancies_info_hh[0])
-
-# load_dotenv()
-# secret_key = os.getenv("SJ_TOKEN")
-# headers = {
-#     "X-Api-App-Id": secret_key
-# }
 
 
 def get_sj_autorisation(secret_key, headers):
@@ -94,11 +79,6 @@ def get_salary_info_from_sj(language, headers):
     return salary_from_to_sj, sj_total
 
 
-# vacancies_info_sj = get_salary_info_from_sj(language, headers)
-#
-# average_salary_sj = get_average_salary_and_processed(vacancies_info_sj[0])
-
-
 def create_dictionary(language, salary, vacancies_processed, average_salary):
     table = []
     sample_form = {
@@ -124,7 +104,7 @@ def print_data_tabs(table, title_site):
 
 
 def main():
-    programming_languages = ["Python", "Java"]
+    programming_languages = ["Python", "Java", "Javascript", "Ruby", "PHP", "C++", "CSS", "C#"]
     table_hh = []
     table_sj = []
 
