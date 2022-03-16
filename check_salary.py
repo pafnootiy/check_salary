@@ -7,6 +7,10 @@ from dotenv import load_dotenv
 from terminaltables import AsciiTable
 import requests
 
+
+# language = "python"
+
+
 def get_salary_info_from_hh(language):
     url = "https://api.hh.ru/vacancies/"
 
@@ -24,31 +28,35 @@ def get_salary_info_from_hh(language):
         hh_json = response.json()
 
         for salary in hh_json["items"]:
-            salary_from_to.append(salary["salary"])
+            if salary["salary"]["from"]:
+                payment_from = salary["salary"]["from"] * 1.2
+                salary_from_to.append(payment_from)
+            else:
+                payment_to = salary["salary"]["to"] * 0.8
+                salary_from_to.append(payment_to)
         if page >= 20:
             break
         vacancies_found = hh_json["found"]
+
     return salary_from_to, vacancies_found
 
 
-def get_salaries_from_to(salary_hh):
-    salary_from_to = []
-    for salary in salary_hh[0]:
-        if salary["from"]:
-            payment_from = salary["from"] * 1.2
-            salary_from_to.append(payment_from)
-        else:
-            payment_to = salary["to"] * 0.8
-            salary_from_to.append(payment_to)
-    return salary_from_to
-
-
+# vacancies_info_hh = get_salary_info_from_hh(language)
 
 
 def get_average_salary_and_processed(salary):
     average_salary = int(sum(salary) / len(salary))
     vacancies_processed = len(salary)
     return average_salary, vacancies_processed
+
+
+# average_salary_hh = get_average_salary_and_processed(vacancies_info_hh[0])
+
+# load_dotenv()
+# secret_key = os.getenv("SJ_TOKEN")
+# headers = {
+#     "X-Api-App-Id": secret_key
+# }
 
 
 def get_sj_autorisation(secret_key, headers):
@@ -70,27 +78,25 @@ def get_salary_info_from_sj(language, headers):
         response = requests.get(url_for_vacancy, headers=headers, params=payload)
         response.raise_for_status()
         sj_json = response.json()
+
         if sj_json['total']:
             sj_total = sj_json['total']
-
         for salary in sj_json["objects"]:
-            salary_from_to_sj.append(salary)
+            if salary["payment_from"]:
+                payment_from = salary["payment_from"] * 1.2
+                salary_from_to_sj.append(payment_from)
+            else:
+                payment_to = salary["payment_to"] * 0.8
+                salary_from_to_sj.append(payment_to)
 
-        if page >= 65:
+        if page >= 20:
             break
     return salary_from_to_sj, sj_total
 
 
-def get_salary_from_to_sj(salary_sj):
-    salary_from_to = []
-    for salary in salary_sj[0]:
-        if salary["payment_from"]:
-            payment_from = salary["payment_from"] * 1.2
-            salary_from_to.append(payment_from)
-        else:
-            payment_to = salary["payment_to"] * 0.8
-            salary_from_to.append(payment_to)
-    return salary_from_to
+# vacancies_info_sj = get_salary_info_from_sj(language, headers)
+#
+# average_salary_sj = get_average_salary_and_processed(vacancies_info_sj[0])
 
 
 def create_dictionary(language, salary, vacancies_processed, average_salary):
@@ -123,26 +129,27 @@ def main():
     table_sj = []
 
     for language in programming_languages:
-        salary_hh = get_salary_info_from_hh(language)
-        salary_from_to_hh = get_salaries_from_to(salary_hh)
-        average_salary_and_processed = get_average_salary_and_processed(salary_from_to_hh)
-        table_col_hh = create_dictionary(language, salary_hh[1], average_salary_and_processed[1],
-                                         average_salary_and_processed[0])
-        table_hh.append(table_col_hh[0])
-
         load_dotenv()
         secret_key = os.getenv("SJ_TOKEN")
         headers = {
             "X-Api-App-Id": secret_key
         }
-        get_sj_autorisation(secret_key, headers)
-        salary_sj = get_salary_info_from_sj(language, headers)
-        sj_salary_from_to = get_salary_from_to_sj(salary_sj)
-        average_salary_and_processed_sj = get_average_salary_and_processed(sj_salary_from_to)
-        table_col_sj = create_dictionary(language, salary_sj[1], average_salary_and_processed_sj[1],
-                                         average_salary_and_processed_sj[0])
 
-        table_sj.append(table_col_sj[0])
+        vacancies_info_hh = get_salary_info_from_hh(language)
+        average_salary_hh = get_average_salary_and_processed(vacancies_info_hh[0])
+        table_collection_hh = create_dictionary(language, vacancies_info_hh[1], average_salary_hh[1],
+                                                average_salary_hh[0])
+        table_hh.append(table_collection_hh[0])
+
+        get_sj_autorisation(secret_key, headers)
+        vacancies_info_sj = get_salary_info_from_sj(language, headers)
+        average_salary_sj = get_average_salary_and_processed(vacancies_info_sj[0])
+
+        table_collection_sj = create_dictionary(language, vacancies_info_sj[1], average_salary_sj[1],
+                                                average_salary_sj[0])
+
+        table_sj.append(table_collection_sj[0])
+
     title_site_hh = "HH Vacancies"
     print_data_tabs(table_hh, title_site_hh)
     title_site_sj = "SJ Vacancies"
