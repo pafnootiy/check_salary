@@ -17,7 +17,7 @@ def predict_rub_salary(salary_from, salary_to):
         return salary_to * 0.8
 
 
-def get_salary_info_from_hh(language, total_page=1):
+def get_salary_info_from_hh(language, pages=1):
     url = "https://api.hh.ru/vacancies/"
     vacancies_processed = 0
     total_salary = 0
@@ -32,18 +32,18 @@ def get_salary_info_from_hh(language, total_page=1):
         }
         response = requests.get(url, params=payload)
         response.raise_for_status()
-        hh_json = response.json()
+        response_hh = response.json()
 
-        for item in hh_json["items"]:
-            if not item.get('currency') != 'RUB':
+        for item in response_hh["items"]:
+            if item.get('currency') != 'RUB':
                 continue
             salary = predict_rub_salary(item["salary"]["from"], item["salary"]["to"])
             if salary:
                 vacancies_processed += 1
                 total_salary += salary
-        if page >= total_page:
+        if page >= pages:
             break
-        vacancies_found = hh_json["found"]
+        vacancies_found = response_hh["found"]
         avarage_salary = total_salary / vacancies_processed if vacancies_processed else 0
 
     return {
@@ -73,7 +73,7 @@ def get_sj_autorisation(secret_key, headers):
     sj_response.raise_for_status()
 
 
-def get_salary_info_from_sj(language, headers, total_page=1):
+def get_salary_info_from_sj(language, headers, pages=1):
     url_for_vacancy = "https://api.superjob.ru/2.0/vacancies/"
 
     vacancies_processed = 0
@@ -82,21 +82,21 @@ def get_salary_info_from_sj(language, headers, total_page=1):
     for page in count(0):
         payload = {'keyword': language,
                    "town": 4,
-                   'page': page,
+                   'page': None,
                    "no_agreement": 1
                    }
         response = requests.get(url_for_vacancy, headers=headers, params=payload)
         response.raise_for_status()
-        sj_json = response.json()
+        response_sj = response.json()
 
-        for item in sj_json["objects"]:
+        for item in response_sj["objects"]:
             salary = predict_rub_salary(item["payment_from"], item["payment_to"])
             if salary:
                 vacancies_processed += 1
                 total_salary += salary
-        if page >= total_page:
+        if page >= pages:
             break
-        vacancies_found = sj_json["total"]
+        vacancies_found = response_sj["total"]
         avarage_salary = total_salary / vacancies_processed if vacancies_processed else 0
 
     return {
@@ -113,21 +113,21 @@ def main():
         "X-Api-App-Id": secret_key
     }
     programming_languages = ["Python", "Java", "Javascript", "Ruby", "PHP", "C++", "CSS", "C#"]
-    hh_info = []
+    hh_salaries= []
     get_sj_autorisation(secret_key, headers)
 
     for language in programming_languages:
-        vacancies_info_hh = get_salary_info_from_hh(language, total_page=1)
-        hh_info.append({'language': language, "info": vacancies_info_hh})
+        vacancies_info_hh = get_salary_info_from_hh(language, pages=1)
+        hh_salaries.append({'language': language, "info": vacancies_info_hh})
 
     for language in programming_languages:
-        vacancies_info_sj = get_salary_info_from_sj(language, headers, total_page=1)
-        hh_info.append({'language': language, "info": vacancies_info_sj})
+        vacancies_info_sj = get_salary_info_from_sj(language, headers, pages=1)
+        hh_salaries.append({'language': language, "info": vacancies_info_sj})
 
     title_site_hh = "HH Vacancies"
     title_site_sj = "SJ Vacancies"
-    print(create_data_tabs(hh_info, title_site_hh))
-    print(create_data_tabs(hh_info, title_site_sj))
+    print(create_data_tabs(hh_salaries, title_site_hh))
+    print(create_data_tabs(hh_salaries, title_site_sj))
 
 
 if __name__ == '__main__':
